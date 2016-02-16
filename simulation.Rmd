@@ -1,0 +1,195 @@
+---
+title: "Simulated Sorghum Code"
+author: "David LeBauer"
+date: "November 22, 2015"
+output: html_document
+---
+
+For simplicity, and because I neither have a model nor the data to simulate _Sorghum_, I have started with some phenotypes and simulations of plant growth based on a model that simulates the growth of biomass crops including Miscanthus, Switchgrass, Sugarcane, and coppice Willow.
+
+## Some background / methods.
+
+I start with simulation of Miscanthus, over Illinois. [The code underlying the simulation is on GitHub](https://github.com/ebimodeling/biocro_regional/edit/master/vignettes/regional_pecan_workflow.Rmd). 
+Like Sorghum, Miscanthus uses C4 photosynthesis, and this is used to compute carbon uptake at hourly time steps in the simulation model. 
+Unlike Sorghum, Miscanthus grows clonally and is propagated by Rhizome instead of by seed. Furthermore, Miscanthus is perennial: it re-grows each year from carbon stored in rhizomes.
+The 'genotypes' are based on five-hundred quasi-random parameterizations of a biophysical crop model.
+
+The virtual "Miscanthus" is encoded as a set of associated species and prior estimates of the phenotypes used to parameterize the simulation model. The concept of Plant Functional Type (PFT) is any group of one or more plants, originally functionally related species such as 'C4 crops' or 'hardwood trees'. We use PFT at the finest scale of genotype. In the actual research that generated these data, this was the clone _Miscanthus x giganteus_, and this is [PFT #123 in BETYdb](https://www.betydb.org/pfts/123). 
+
+## A Simulated Sorghum Breeding Population
+
+In make-believe land we take a bunch of data generated above and start to rename things
+
+* run_id -> genotype #represents quasi-random set of traits
+* lat, lon -> To estimate "E"
+   * for within site E effects, use a few points within 1/4 degree lat/lon 
+   * for across site E effects, use southern, central, and northern Illinois.
+
+### Simulated Phenotypes
+
+I can make a plot of these
+
+Phenotypes: MCMC samples in `trait.mcmc.Rdata` probability distribution as PDFs in `post.distns.MA.Rdata`; 
+
+```{r}
+load("~/pecan_remote/sorghum_simulation/University_Illinois/samples.Rdata")
+
+phenotypes <- cbind(genotype = 9914+1:500, 
+                    ensemble.samples$Miscanthus_x_giganteus)
+
+knitr::kable(summary(phenotypes))
+
+```
+
+### Simulated Biomass
+
+```{r}
+
+# on biocluster ensemble_id 205
+library(data.table)
+library(lubridate)
+setwd("~/pecan_remote/205/out")
+files <- data.table(run = 9915:10141)#10482:11048)
+allout <- list()
+for(i in 1:length(files$run)){
+  run <- files$run[i]
+  
+  filename = file.path(run, "biocro_output.RData")
+  if(file.exists(filename)){
+    load(filename)
+    # Palmer Drought Severity Index for Ohio valley
+    # http://www.ncdc.noaa.gov/extremes/cei/graph/ce/3/06-08
+    # 1997 wet
+    # 1999 dry
+    # 2000 normal
+    # 2004 wet
+    # 2007 dry
+    if(!is.null(biocro_result)){
+    .tmp <- cbind(run = run, biocro_result[year %in% c(1997, 1999, 2000, 2004, 2007) & 
+                                                    (lat %in% c(42.625, 42.375, 40.625, 40.375, 37.625, 37.875) & 
+                                                       lon %in% c(-88.625, -88.375)), 
+                                                  list(plot = lat*10000-lon*100,
+                                                    site = ifelse(lat > 42, 'north', ifelse(lat > 40, 'central', 'south')),
+                                                    year, date = ymd(paste(year, 01, 01)) + days(doy), Stem, Leaf, Root, Rhizome, tmax, tmin, tavg, precip)])
+    allout[[i]]  <- cbind(.tmp[,list(sitename = site, plotid = LETTERS[frank(plot, ties.method = 'dense')]), by = 'site'], .tmp)
+    rm(biocro_result, .tmp)
+    }
+    
+  }
+}
+all <- rbindlist(allout)
+save(all, file = "sorghum_simulation.RData")
+system("rsync -routi biocluster:pecan_remote/205/out/sorghum_simulation.RData ./")
+```
+
+
+### Simulating LAI, NDVI
+
+```{r simulating}
+#system("rsync -routi biocluster:pecan_remote/205/out/sorghum_simulation.RData ./")
+load("sorghum_simulation.RData")
+library(data.table)
+library(lubridate)
+all$plot <- NULL
+all$site <- NULL
+set.seed(100)
+
+all[, `:=`(LAI = Leaf * (0.66 + runif(1:length(Leaf), -0.01 * Leaf / 10, 0.01*Leaf/10)))]
+all[, `:=`(NDVI = 0.9 + (-0.66 * 0.76 * exp(-1.1 * LAI + rnorm(1:length(LAI), 0, LAI/100))))]
+## height proportional to biomass via volume 
+all[, `:=` ( Height = (pi / 3 )*(rnorm(1:length(Stem), Stem/100, Stem/1000) + runif(1:length(Stem), Stem / 1000, 2*Stem / 1000) + Stem * (Stem / 50)^2)^(1/3)-0.02)  ]
+
+#save(all, file = "sorghum_simulation.RData")
+#load('sorghum_simulation.RData')
+
+library(dplyr)
+
+errors <- function(x) {
+  e1 <- runif(1:length(x), x/1000, x/800)
+  e2 <- rnorm(1:length(x), 2*log(1+x), sd(x) * x/100)
+  e3 <- min(e1, e2) + e1 / 1000 + e2 / 1000
+  e <- e1 * runif(1:length(x)) + e2 * rlnorm(1:length(x), -0.5, 0.1) + e3 * rgamma(1:length(x), 2, 4)
+  big <- x > 0.01
+  x[big] <- x[big] + e[big]
+  x[x < 0.01] <- 0
+  x <- round(x, 2)
+  return(x)
+}
+
+errors <- compiler::cmpfun(errors)
+sorghum_simulation <- tbl_df(all)  %>% 
+  mutate(genotype = run, Tmax = round(tmax,1), Tmin = round(tmin, 1), Tavg = round(tavg, 1), 
+         precipitation = round(precip, 2), 
+         Stem = errors(Stem), Leaf = errors(Leaf), Root = errors(Root), LAI = errors(LAI), 
+         NDVI = errors(NDVI), Height = errors(Height)) %>% 
+  select(-run)
+
+sorghum_simulation <- sorghum_simulation %>%
+  mutate(year = 2020 + frank(year, ties.method = 'dense')) %>% 
+  dplyr::select(-tmax, -tmin, -tavg)
+
+year(sorghum_simulation$date) <- sorghum_simulation$year
+write.csv(phenotypes, 'phenotypes.csv')
+
+s <- sorghum_simulation %>% setDT
+sorghum_observations <- s[,list(sitename, plotid, genotype, date, Stem, Leaf, Root, Rhizome, precip, LAI, NDVI, Height)] 
+
+write.csv(sorghum_observations, 'observations.csv')
+
+sorghum_met <- unique(s[,list(sitename, plotid, date, Tmax, Tmin, Tavg, precipitation)])
+
+write.csv(sorghum_met, 'met.csv')
+#normalized_difference_vegetation_index
+#leaf area index
+variables <- fread("~/Downloads/BETYdb Variables - Sheet 1.csv")
+knitr::kable(variables[Name %in% c(colnames(phenotypes), colnames(sorghum_simulation)), list(variable_id = id, name = Name, standard_name, units = Units, Description)])
+
+```
+
+
+```{r}
+library(data.table)
+library(dplyr)
+
+phenotypes <- fread("phenotypes.csv")
+sorghum_simulation <- fread("sorghum_simulation.csv")
+library(ggplot2)
+library(ggthemes)
+library(GGally)
+theme_set(theme_tufte())
+
+p <- phenotypes %>% dplyr::select(Vcmax, c2n_leaf, cuticular_cond, SLA, quantum_efficiency,
+                                  leaf_respiration_rate_m2, stomatal_slope.BB, growth_respiration_coefficient,
+                                  Jmax, chi_leaf, extinction_coefficient_diffuse) %>% setDT
+                                
+ggpairs(p,  
+        lower = list(continuous = 'density'),
+        upper = list(continuous = 'blank'),
+        axisLabels = 'internal')
+
+```
+
+
+
+```{r}
+library(lubridate)
+s <- sorghum_simulation %>% 
+  mutate(Day = yday(date), 
+         line = as.factor(paste('Sim', genotype)),
+         Biomass = Stem + Leaf) %>% setDT
+
+## figure out best / worst
+s[year == 2023][which.max(Stem)]
+s[year == 2023 & month(date) == 10][which.min(Stem)]
+theme_set(theme_tufte()) 
+ggplot() + 
+  geom_smooth(data = s[genotype >9950 & genotype < 10000],
+              aes(x = Day, y = Biomass, fill = NULL, group = genotype), alpha = 0.1, color = 'grey') +
+  geom_smooth(data = s[genotype == 10020],
+              aes(x = Day, y = Biomass), color = 'darkgreen') +
+  geom_smooth(data = s[genotype == 9934],
+              aes(x = Day, y = Biomass), color = 'red') +
+  facet_wrap(~year, nrow = 1) 
+        
+```
+
