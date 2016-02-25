@@ -32,7 +32,8 @@ I can make a plot of these
 Phenotypes: MCMC samples in `trait.mcmc.Rdata` probability distribution as PDFs in `post.distns.MA.Rdata`; 
 
 ```{r}
-load("~/pecan_remote/sorghum_simulation/University_Illinois/samples.Rdata")
+
+load("/Users/kylepayne/Desktop/terra_ref/samples.Rdata")
 
 phenotypes <- cbind(genotype = 9914+1:500, 
                     ensemble.samples$Miscanthus_x_giganteus)
@@ -48,7 +49,7 @@ knitr::kable(summary(phenotypes))
 # on biocluster ensemble_id 205
 library(data.table)
 library(lubridate)
-setwd("~/pecan_remote/205/out")
+setwd("out/")
 files <- data.table(run = 9915:10141)#10482:11048)
 allout <- list()
 for(i in 1:length(files$run)){
@@ -79,7 +80,6 @@ for(i in 1:length(files$run)){
 }
 all <- rbindlist(allout)
 save(all, file = "sorghum_simulation.RData")
-system("rsync -routi biocluster:pecan_remote/205/out/sorghum_simulation.RData ./")
 ```
 
 
