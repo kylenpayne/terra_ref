@@ -2,7 +2,10 @@
 title: "Measures of Prediction Accuracy and Ranking"
 author: "Kyle Payne, Tangwei Li, Manzi Qin"
 date: "March 1, 2016"
-output: pdf_document
+header-includes:
+   - \usepackage{theorem}
+output:
+  tufte::tufte_handout: default
 ---
 
 # Introduction
@@ -28,7 +31,36 @@ $$
 
 The square of the numerator $\sum_{i=1}^{n}(Y_i - \hat{Y_i})^2$ is a well-studied function within the machine learning and statistics community, known as the Mean Squared Prediction Error, or (MSPE). This is an easily computed, and numerically stable quantity that provides several desirable large sample properties. The denominator of $RMSPE$ can be viewed as the difference of the continuous ground-truth phenotype values from $0$. Thus, $RMSPE$ acts a relative measure of the difference between the ground truth continuous phenotype values, expressed in units of the continuous phenotype. Using this measure, an experimenter could make a statment such as, "I demonstrated that the predicted values are within $0.2$ of the ground truth values". This type of measure could be helpful for determining prediction accuracy for both Terminal Biomass and 3D Structural Models. Moreover, the $RMSPE$ could also be used to compare the prediction accuracy between competing models, such as comparing algorithm predictions v.s. the Lemnatec Software. 
 
-## Examples
+# Expected Value of the RMSPE
+While the RMSPE is a ratio of two random quantities, and thus may have a distribution that is difficult to derive analytically, it is possible to derive the expected value of RMPSE from a simple bivariate taylor expansion. That is,
+for any differentiable real-valued function 
+
+$$
+f(x,y) = f(\theta) + f_{x}^{`}(\theta)(x-\theta_x)+f_{x}^{`}(\theta)(y-\theta_y) + remainder
+$$
+
+Then for $\theta = (E(X), E(Y))$, we get
+
+
+$$
+f(X,Y) = f(\theta) + f_{x}^{`}(\theta)(X-E(X))+f_{x}^{`}(\theta)(Y-E(Y)) + remainder.
+$$
+
+Then for $f(x,y) = \frac{x}{y}$, a first-order taylor approximation of $E(\frac{X}{Y}) = \frac{E(X)}{E(Y)} + E(O(n^{-1}))$.
+
+# MSPE 
+
+Another important property of the RMSPE can be found when looking at the quadratic expansion of the numerator of the ratio, that is, the $MSPE$. 
+
+$$
+MSPE = \sum_{i=1}^{n}(Y_{i} - \hat{Y}_{i})^2 = \sum_{i}(Y_{i} - E(Y_i|X_i = x_i) + E(Y_i|X_i=x_i) - \hat{Y}_i)^2 = \sum_{i=1}^{n}(Y_{i} - E(Y_i|X_i = x_i))^2 +
+\sum_{i=1}^{n}(E(Y_i|X_i=x_i) + error = bias^2 + variance + error. 
+$$
+
+Where the later error term is irreducbile. One conclusion from this derivation is that if one minimizes the $MSPE$ over a set of models $M_0, M_1, ..., M_m$ then obviously one minimizes the $bias^2 + variance$ of the set of models. As we assume the restriction that all models $M_0, M_1, ..., M_m$ are trained and tested on the same sets of data, $\|Y\|$ is the same for all and only acts as a scaling factor.
+
+
+# Examples
 
 If a prediction model produces a set of predictions $\hat{Y_1}, ..., \hat{Y_n}$, for a set of ground truth continuous phenotype values $Y_1, ..., Y_n$, then 
 let's state that 
@@ -48,7 +80,178 @@ $$
 
 Thus, if we compare two prediction models in $RMSPE$ on the same set of data, the comparision is equivalent to just comparing the average squared difference between the predictions and the ground truth values.
 
-## Regularized RMSPE
+# Penalized RMSPE
+While relative mean squared prediction error is guaranteed to minimize the overall $bias^2 + variance$ over a set of prediction models fit to the same test set, it is not currently equipped to score the cases in which we wish to compare multiple models predictions that include interval estimations. We now introduce a measure that for fixed probability coverage $1-\alpha$, can evaluate model predictions with interval predictions. We also will present an argument for how it may be improved based on assumptions on the underlying distribution of the data.
+
+Let $C_{n}(x) \subset \mathbb{R}^{1}$ be an interval prediction s.t. for all $x$
+
+$$
+C_{n}(x) = C((X_1, Y_1), ..., (X_{n}, Y_n), x)
+$$
+is an interval prediction based on the training data, a set of pairs 
+$$
+(X_1, Y_1), ..., (X_{n}, Y_n)
+$$
+
+with $X_{k} \in \mathbb{R}^d$ and $Y_{k} \in \mathbb{R}$ with $d<n$. Moreover, 
+$C_{n}(x)$ is typically constructed such that 
+$$
+P(Y_{n+1} \in C_{n}(X_{n+1})) \geq 1-\alpha
+$$
+
+That is, the probability coverage of the prediction interval is at least $1-\alpha$. Obviously, we want our prediction interval to be as small as possible in lebesgue measure while retaining at least $1-\alpha$ probability converage of any observation in the test set, i.e. $(X_{n+1}, Y_{n+1})$. A general evaluation of model performance could be one in which we consider models which have the smallest overall bias, variance, and (if equipped with interval predictions), the smallest size of a prediction interval over a set of models where the probability coverage of the interval is $1-\alpha$. A measure of efficiency of the interval estimate is the Lebesgue measure, which in any subset of $[a,b] \subset \mathbb{R}$ is just $b-a$. Thus, as $C_{n}(x)$ is just an interval pointwise, we can measure of the efficiency as defined in (citation) as $C_{n}^{u}(x) - C_{n}^{l}(x)$ where $C_{n}(x) = [C_{n}^{l}(x), C_{n}^{u}(x)]$.
+
+To formalize the measure, let 
+
+$$
+\tau_r = \{(X_1, Y_1), ..., (X_{n}, Y_n)\}
+$$
+be training data with $X_{k} \in \mathbb{R}^d$ and $Y_{k} \in \mathbb{R}$ with $d<n$.
+
+and let 
+
+$$
+\tau_e = \{(X_n, Y_n), ..., (X_{n+k}, Y_{n+k})\}
+$$
+be test data with $X_{k} \in \mathbb{R}^d$ and $Y_{k} \in \mathbb{R}$, that is, there are $k$ many observations in $\tau_e$. This notation is without loss of generality as the ordering in the set is entirely arbitrary. Let a model $M$ be fit on $\tau_r$, with point predictions $\mathbf{\hat{Y}}$, and prediction interval estimates $C_{n}(X_{n}), ..., C_{n}(X_{n+k})$. Then
+
+$$
+PRMSPE_{\tau_e} = \frac{\| Y-\hat{Y} \|}{\| Y \|} + \frac{\sum_{j=1}^{k}(C_{n}^{u}(X_{n+j}) - C_{n}^{l}(X_{n+j}))}{\| Y \|}
+$$
+
+
+A problem with this formulation is that due to the typical case in which the interval has much larger Lebesgue measure when compared to how far off the prediction is from the true value in the test set. The amount of the measure from the RMSPE is relative small compared to the effect of the size of the confidence inteval. A natural response is then to renalize the measure such that the two contributions to the size of the measure are roughly the same. But then, one must ask what kind of penalty should be used. An alternative measure factoring in the size of the prediction interval is defined by Gneiting, Raferty (2007) as follows:
+$$
+S(C_n(x), y)_{\alpha} = (p_u - p_l) + \frac{2}{\alpha}(p_l - y)\mathbb{1}(y < p_l) + \frac{2}{\alpha}(y - p_u)\mathbb{1}(y > p_u),
+$$
+
+Suppose your prediction interval has lower limit $p_l$ and upper limit $p_u$, and the goal is to design a central prediction interval at level $\alpha$ (i.e. you allow for $\alpha/2$ percent of the observations to fall below $p_l$, and for $\alpha/2$ percent to fall above $p_u$).
+
+The intuition behind the score formula is in the best of all worlds, we would want to have very short prediction intervals ($p_u$ only slightly larger than $p_l$), which nevertheless cover the realization $y$, $p_l \leq y \leq p_u$. In this ideal world, the first summand of the score formula would be close to zero, whereas the second and third summands would be exactly zero.
+
+Of course, in practice there is a tradeoff between producing short prediction intervals and actually covering the realization $y$. The score above strikes a balance between those two goals.
+
+# Characterization of Scoring Rules
+
+$S$ is a proper scoring rule in the sense of Gneiting, Raferty (2007). If we have a general probability space, then any probabilistic forecast or prediction is just a measurable probability function within the class of Probability measures $\forall p\in P$. If a Score is proper then
+
+$$
+S(Q, Q)\leq S(P,Q) 
+$$
+
+with equality only if $Q=P$. This is know in Casella, Lehmann (1998, pg. 157) as risk unbiasedness. Thus we follow the framework of Gneiting, Raferty (2007) and Casella, Lehmann (1998, pg. 157) in constructing scores for interval estimates that are proper in the sense above. 
+
+
+# Criteria for Scoring Prediction Models
+
+Following the intuition for a score that weighs both the point prediction accuracy as well as the interval estimation width and coverage, we arrive at
+
+
+$$
+PRMSPE_{\tau_e} = \frac{\| Y-\hat{Y} \|}{\| Y \|} + \frac{1}{k \|Y \|}\sum_{i=1}^{k}S(C_n(x), y_i)_{\alpha}
+$$
+
+Practically, this score penalization results in a convenient and well-behaved score for measuring the strength of a prediction model while providing an even measure of the interval strength. 
+
+```{r, echo=FALSE, fig.margin=TRUE}
+RMSPE <- function(y, prediction){
+  return(norm(as.matrix(y-prediction), type="F")/norm(as.matrix(y), type="F"))
+}
+
+PRMSPE <- function(y, prediction, lcl, ucl, alpha){
+  r <- RMSPE(y, prediction)
+  s <- ucl - lcl + (2/alpha)*(lcl - y)*(y < lcl) + (2/alpha)*(y-ucl)*(y > ucl)
+  s_rel <- mean(s)/norm(as.matrix(y), type="F")
+  
+  return(r + s_rel)
+}
+
+obs_sub <- read.csv("obs_sub.csv")
+ind <- sample(2, nrow(obs_sub), replace = TRUE, prob=c(0.8, 0.2))
+obs_sub$genotype <- factor(obs_sub$genotype)
+obs_sub$plotid <- factor(obs_sub$plotid)
+
+
+library(mgcv)
+niter<-10
+results <- matrix(NA, nrow=niter, ncol=4)
+for(k in 1:niter){
+  train <- obs_sub[ind==1,]
+  train_sub <- train[sample(1:nrow(train), size=10000,replace = T),]
+  gam1 <- gam(Stem ~ plotid + precip + Leaf + Root + genotype,
+                         data=train_sub)
+
+  gam2 <- gam(Stem ~ Rhizome + LAI + NDVI + precip, 
+                         data=train_sub)
+  
+  test <- obs_sub[ind==2,] 
+  p1 <- predict(gam1, newdata=test, type = "link", se.fit = TRUE)
+  p2 <- predict(gam2, newdata=test, type = "link", se.fit = TRUE)
+  
+  upr1 <- p1$fit + (2 * p1$se.fit)
+  lwr1 <- p1$fit - (2 * p1$se.fit)
+  
+  upr2 <- p2$fit + (2 * p2$se.fit)
+  lwr2 <- p2$fit - (2 * p2$se.fit)
+  
+  preds <- data.frame(p1$fit, lwr1, upr1, p2$fit, lwr2, upr2)
+  
+  results[k,1:2] <- c(RMSPE(test[,'Stem'], p1$fit), RMSPE(test[,'Stem'], p2$fit))
+  results[k,3:4] <- c(PRMSPE(y = test[,'Stem'], prediction = p1$fit, 
+                           lcl = lwr1, ucl = upr1, alpha = 0.05),
+                    PRMSPE(y = test[,'Stem'], prediction = p2$fit, 
+                         lcl = lwr2, ucl = upr2, alpha = 0.05))
+}
+colnames(results) <- c("RMSPE1", "RMSPE2", "PRMSPE1", "PRMSPE2")
+library(reshape2)
+res_m <- melt(results)
+colnames(res_m) <- c("iteration","measure", "value")
+library(ggplot2)
+res_m <- data.frame(res_m)
+ggplot(res_m, aes(x=iteration, y=value)) + geom_line(aes(colour=measure))
+```
+
+Another interesting aspect of the interval score penalty is that it may work in comparisons for predictions with different probability coverages.
+
+
+# Lemma 1.
+If there are two model-based prediction intervals $C_n^{(0)}(x)_{\alpha}=[p_l^{(0)}, p_u^{(0)
+}]$, $C_n^{(1)}(x)_{\alpha}=[p_l^{(1)}, p_u^{(1)
+}]$, for models $M_0$ and $M_1$, then for a test sample $(x_{n+1},y_{n+1})$, if 
+$\epsilon =  (p_u^{(1)} - p_l^{(1)}) -(p_u^{(0)} - p_l^{(0)})$ and 
+$$
+S(C_n^{(0)}(x_{n+1})_{\alpha}) \leq S(C_n^{(1)}(x_{n+1})_{\alpha})
+$$
+then 
+
+$$
+(p_l^{(0)} - y_{n+1})\mathbb{1}(y_{n+1} < p_l^{(0)}) - (p_l^{(1)} - y_{n+1})\mathbb{1}(y_{n+1} < p_l^{(1)}) 
++(y_{n+1} - p_u^{(0)})\mathbb{1}(y_{n+1} > p_u^{(0)}) - (y_{n+1} - p_u^{(1)})\mathbb{1}(y_{n+1} > p_u^{(1)}) \leq \frac{\alpha \epsilon}{2}
+$$
+
+The Proof of Lemma 1 is given in the appendix.
+
+One consequence of Lemma 1 is that if for any arbitrary observation in the test set $(Y_{n+1}, x_{n+1})$, if $S(C_n^{(0)}(x_{n+1})_{\alpha}) \leq S(C_n^{(1)}(x_{n+1})_{\alpha})$ then either 
+
+$$
+(p_l^{(0)} - y_{n+1}) \leq \frac{\alpha \epsilon}{2} + (p_l^{(1)} - y_{n+1})\mathbb{1}(y_{n+1} < p_l^{(1)}) 
+$$
+or 
+$$
+(p_l^{(0)} - y_{n+1}) \leq \frac{\alpha \epsilon}{2} + (y_{n+1} - p_u^{(1)})\mathbb{1}(y_{n+1} > p_u^{(1)})
+$$
+or 
+$$
+(y_{n+1} - p_u^{(0)})\mathbb{1}(y_{n+1} > p_u^{(0)}) \leq  \frac{\alpha \epsilon}{2} + (p_l^{(1)} - y_{n+1})\mathbb{1}(y_{n+1} < p_l^{(1)}) 
+$$
+or
+$$
+(y_{n+1} - p_u^{(0)})\mathbb{1}(y_{n+1} > p_u^{(0)}) \leq  \frac{\alpha \epsilon}{2} + (y_{n+1} - p_u^{(1)})\mathbb{1}(y_{n+1} > p_u^{(1)})
+$$
+or both intervals cover the target sample $y_{n+1}$. The meaning of these comparisons seem to indicate that if the prediction band does not cover the actual test realization for the prediction band with the lower (better) score, then the distance between the upper or lower limit of the prediction band and the true test realization is bounded by $\frac{\alpha \epsilon}{2}$ and the difference in the upper or lower prediction band and the true test realization for model $M_{1}$. Simply put, if the prediction band $C_n^{(0)}(x_{n+1})$ screws up, then it can't be by much.
+
+One might question the importance of the probability coverage of prediction intervals if for any finite sample then prediction bands cover $y_{n+1}$. Of course such an interval would be a godsend. However, while we can evaluate the empirical coverage proportion in any test sample
+$\frac{1}{n}\sum_{i=1}^{n}1(Y_{i} \in C_n^(x_{n+1}))$, we would hope to use the preidction interval in a context in which we couldn't check the coverage empirically. Thus, we have to consider the probability coverage of the interval in determining optimal intervals. This is also complicated by the fact that one can create arbitrarily good coverage of $Y_{n+1}$ by taking $\alpha\rightarrow 0$. Thus the interval score $S_{n}$ balances size of the overall interval by the empirical coverage, and should work well for models that generalize well.
 
 
 ## Performance 
@@ -56,7 +259,7 @@ The Relative Mean Squared Prediction Error Performs well in situations in which 
 For the following example, let's assume that some prediction algorithm has been fitted to a set of training data. In this case, we chose a Random Forest Model to predict Stem Biomass using the plot identifier and the precipitation data on a sub-sample of simulated data. We trained the random forest model on a sub-sample of simulated data. Predictions were then made using a test sample of the data, with additional mean $0$ gaussian random noise applied to the Stem Biomass data. The RMSPE measure increases like a polynomial with increasingly variable noise. However, the RMSPE remains relatively robust to deviations from the true Prediction Error, and only increases to very large values as the 
 
 
-````{r}
+````{r, echo=FALSE, fig.margin=TRUE}
 
 library(randomForest)
 obs_sub <- read.csv("~/Desktop/terra_ref/obs_sub.csv")
@@ -72,8 +275,8 @@ RMSPE <- function(y, prediction){
 obs_rf <- randomForest(Stem ~ plotid + precip, 
                        data=obs_sub[ind == 1,])
 
-rmspe <- numeric(100)
-for(k in 1:100){
+rmspe <- numeric(10)
+for(k in 1:10){
   test <- obs_sub[ind==2,] 
   test['Stem'] <- test['Stem'] + rnorm(n=nrow(obs_sub[ind==2,]),
                                         mean = 0, sd=k/10)
@@ -81,17 +284,133 @@ for(k in 1:100){
   rmspe[k] <- RMSPE(test[,'Stem'], obs_pd)
 }
 library(ggplot2)
-results <- data.frame(rmspe, noise_sd =(1:100)/10)
+results <- data.frame(rmspe, noise_sd =(1:10)/10)
 ggplot(results, aes(x=noise_sd, rmspe))+geom_line()+theme_bw()+
   xlab("Standard Deviation of Gaussian Noise") + 
   ylab("Relative Mean Squared Prediction Error") 
   
 ````
 
+## Example
+
+We can also elucidate the behavior of the Scoring Penalty by comparing a single prediction model with two sets of prediction intervals. In this section, we will compare the performance of both the $R$ score and an alternative score, the $MASE$ when comparing a series of increasingly precise bootstrap prediction intervals to that of a normal approximation. 
+
+We estimated a Generalized Additive Model (citation) with a $0.95$ prediction interval approximation of the type described in (Wasserman, 2012):
+
+$$
+C_{n}(x) = (\hat{m}(x) - z_{\alpha/2}\sqrt{\hat{sigma^2} + s}, \hat{m}(x) + z_{\alpha/2}\sqrt{\hat{sigma^2} + s})
+$$
+
+Thus, this prediction interval is symmetric about the point predicted value $\hat{m}(x)$, and likewise acheives nominal $0.95$ coverage as the sample size becomes arbitrarily large.
+
+````{r,echo=FALSE, fig.margin=TRUE}
+
+obs_sub <- read.csv("obs_sub.csv")
+ind <- sample(2, nrow(obs_sub), replace = TRUE, prob=c(0.8, 0.2))
+obs_sub$genotype <- factor(obs_sub$genotype)
+obs_sub$plotid <- factor(obs_sub$plotid)
+
+RMSPE <- function(y, prediction){
+  return(norm(as.matrix(y-prediction), type="F")/norm(as.matrix(y), type="F"))
+}
+
+
+
+MASE_MAS <- function(y, prediction, lcl, ucl, alpha){
+  MASE <- mean(abs(y-prediction))
+  
+  divide <- 0
+  for(k in 2:length(y)){
+    divide <- divide+abs(y[k] - y[k-1])
+  }
+  divide <- (1/(length(y)-1))*divide
+  
+  MASE<-MASE*divide
+  
+  s <- ucl - lcl + (2/alpha)*(lcl - y)*(y < lcl) + (2/alpha)*(y-ucl)*(y > ucl)
+  mean_s <- mean(s)
+  
+  d<-1/(length(s)-1)
+  denom <- 0
+  for(k in 2:length(s)){
+    denom <- denom + abs(s[k] - s[k-1])
+  }
+  denom <- d*denom
+  
+  s_rel <- mean_s/denom
+  
+  return(MASE + s_rel)
+}
+
+
+
+library(mgcv)
+
+train <- obs_sub[ind==1,]
+train_sub <- train[sample(1:nrow(train), size=10000,replace = T),]
+gam1 <- gam(Stem ~ plotid + precip + Leaf + Root + genotype,
+            data=train_sub)
+gam2 <- gam(Stem ~ Rhizome + LAI + NDVI + precip, 
+            data=train_sub)
+
+test <- obs_sub[ind==2,] 
+p1 <- predict(gam1, newdata=test, type = "link", se.fit = TRUE)
+p2 <- predict(gam2, newdata=test, type = "link", se.fit = TRUE)
+
+
+
+### same model, two different prediction intervals. 
+n_iter <- 1000
+results <- matrix(NA, ncol=2, nrow=n_iter)
+
+eps <- 0.01
+for(k in 2:n_iter){
+  ### normal approximation interval
+  upr_norm <- p2$fit + (qnorm(.95) * (p2$se.fit))
+  lwr_norm <- p2$fit - (qnorm(.95) * (p2$se.fit))
+  
+  boot_pred_means <- replicate(k, mean(sample(p2$fit, 100, replace=F)))
+  boot_pred_means_std <- (boot_pred_means-mean(boot_pred_means))/(sd(boot_pred_means))
+  
+  piv_up <- quantile(boot_pred_means_std, 0.95)
+  piv_down <- quantile(boot_pred_means_std, 0.05)
+  
+  
+  upr_boot <- p2$fit + (piv_up*p2$se.fit)
+  lwr_boot <- p2$fit + (piv_down*p2$se.fit) 
+  
+  
+  p_norm <- MASE_MAS(y = test[,'Stem'], prediction = p2$fit, ## alpha = 0.05
+                   lcl = lwr_norm, ucl = upr_norm, alpha = 0.1)
+  
+  p_boot<-MASE_MAS(y = test[,'Stem'], prediction = p2$fit, ## alpha = 0.05
+                 lcl = lwr_boot, ucl = upr_boot, alpha = 0.1)
+  
+  results[k,] <- c(p_norm, p_boot)
+}
+
+
+results<-results[-1,]
+
+colnames(results) <- c("norm", "boot")
+results <- data.frame(results)
+library(reshape2)
+
+results_m <- melt(results)
+results_m <- cbind(results_m, rep(2:n_iter, 2))
+
+
+
+library(ggplot2)
+colnames(results_m) <- c("int_type", "R", "boot_samps") 
+ggplot(results_m,aes(x=boot_samps, y=R))+geom_line(aes(colour=int_type))
+````
+
+
 # Ranking
 Another problem of interest is assigning a score to rank predictions, e.g. given a set of lines of sorghum, and we score the predicted rank orders from some prediction algorithm? The literature is replete with measures of rank ordering. We will focus here two measures of rank ordering correlation, Kendall's Tau and the Normalized Discounted Cumulative Gain. 
 
-## Kendall's Tau
+# Kendall's Tau
 
 Kendall's Tau is a measure of the correlation between two sets of rankings. Let $Y_1, ..., Y_n$  be a set of observations and let $\hat{Y_1}, ..., \hat{Y_n}$ be a set of predicted observations. Then Any pair of observations $(Y_i, \hat{Y_i})$ and $(Y_j, \hat{Y_j})$, where $i \not= j$, are said to be concordant if the ranks for both elements agree: that is, if both $Y_i > Y_j$ and $\hat{Y_i} > \hat{Y_j}$ or if both $Y_i < Y_j$ and $\hat{Y_i} < \hat{Y_j}$. They are said to be discordant, if $Y_i > Y_j$ and $\hat{Y_i} < \hat{Y_j}$ and $Y_i < Y_j$ and $\hat{Y_i} < \hat{Y_j}$ . If $Y_i = Y_j$ and $\hat{Y_i} = \hat{Y_j}$, the pair is neither concordant nor discordant.
 
@@ -104,7 +423,7 @@ $$
 If both sets, the ground truth and predicted values are completely concordant in rank, then $\tau = 1$. Likewise, if both sets are in perfect disagreement, then 
 $\tau = -1$. Kendall's Tau is analogous to a correlation coefficient in this manner. While Kendall's $\tau$ is easy to interprete, $\tau$ does not weight discordance differently depending on where in the rankings the discordance occurs. Therefore, one may be interested in a different ranking score, which we describe below. For examples of Kendall's Tau, please see the github repository.
 
-## Normalized Discounted Cumulative Gain
+# Normalized Discounted Cumulative Gain
 Normalized Discounted Cumulative Gain (NDCG) has gained prominence in the Learning to Rank literature across many fields as a robust and power answer to the problem of measuring the performance of ranking functions. First we start with a explation of the discounted cumulative gain, then we will introduce the normalize version of the measure.
 
 $$
@@ -113,10 +432,10 @@ $$
 where $n$ is the total number of items to rank. $rel_i$ is the relevancy of the predicted rank, which is a value that can take on varying interpretations depending on the context. For this work, we set $rel_i = n-|p_i-t_i|$, where $p_i$ is the predicted rank for the $i^{th}$ ranked value and $t_i$ is the true rank for the $i^{th}$ value. Obviously $t_i = i$. 
 
 $$
-DCG_{p} = \sum_{i=1}^{p}\frac{2^{n-|p_i-i| - 1}}{log_{2}(i+1)}
+DCG_{p} = \sum_{i=1}^{p}\frac{2^{n-|p_i-i|}-1}{log_{2}(i+1)}
 $$
 
-## Examples 
+# Examples 
 Let's say we wish to predict the ranks of the top $10$ lines of sorhgum, based on the overall biomass. Then,
 
 
@@ -141,9 +460,8 @@ $$
 
 The mis-ranking at the 4th position had a slightly smaller effect on the scoring than that of the misprediction at the 4th position. 
 
-### Let's look at another example.
 
-```{r}
+```{r, fig.margin=T}
 library(knitr)
 true_rank <- 1:10
 pred_rank <- c(1,2,3,4,5,6,7,10,9,8)
@@ -177,7 +495,7 @@ $$
 
 One reasonable question to ask is why do define $rel_i = n - |p_i-i|$? instead of $rel_i = k-|p_i -i|$, where $k$ is the length of the list of rankings compared. We chose this form as it allows for mis-rankings outside of the "top $k$ many lines" list. E.g.
 
-```{r}
+```{r, fig.margin=T}
 library(knitr)
 true_rank <- 1:10
 pred_rank <- c(1,2,3,4,50,6,7,8,9,10)
@@ -185,7 +503,8 @@ pred_rank <- c(1,2,3,4,50,6,7,8,9,10)
 ranks <- matrix(c(true_rank, pred_rank), byrow=T, nrow=2)
 row.names(ranks)<-c("Ground Truth", "Predicted")
 
-kable(ranks)
+## kable(ranks)
 ```
 
 We can still score the predicted ranking relative to the true ranking even if the $5th$ position of the list of predicted ranks has a value that is way outside of the top $10$ values. 
+

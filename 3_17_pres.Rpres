@@ -1,0 +1,169 @@
+Progress Report
+========================================================
+author: Kyle , Tangwei, Manze
+date: 3/17/2016
+
+Prediction Interval
+========================================================
+Let $C_{n}(x) \subset \mathbb{R}^{1}$ be an interval prediction s.t. for all $x$
+
+$$
+C_{n}(x) = C((X_1, Y_1), ..., (X_{n}, Y_n), x)
+$$
+and 
+$$
+P(Y_{n+1} \in C_{n}(X_{n+1})) \geq 1-\alpha
+$$
+
+We want a consistent method of evaluating both the interval and the point prediction.
+
+
+
+
+Old Idea
+========================================================
+$$
+PRMSPE = \frac{\| Y-\hat{Y} \|}{\| Y \|} + \frac{\sum_{j=1}^{k}(C_{n}^{u}(X_{n+j}) - C_{n}^{l}(X_{n+j}))}{\| Y \|}
+$$
+
+Penalize against the average size of the interval 
+
+Problem
+========================================================
+
+$$
+\frac{\sum_{j=1}^{k}(C_{n}^{u}(X_{n+j}) - C_{n}^{l}(X_{n+j}))}{\| Y \|}
+$$
+
+This penalty is way too large relative to the size of $RMSPE$. It also doesn't
+take into account the number of times $Y_{n+1} \in C_{n}(X_{n+1})$ in the test set.
+
+Solution
+========================================================
+- Gneiting, Raferty (2007)
+- Defined the idea of Proper Scoring Rules
+- Many nice theoretical properties in abstract probability spaces
+- Analogous to loss functions from estimation literature.
+- Adapting this idea to evaluating intervals, we get:
+
+
+Solution
+========================================================
+- lower limit $p_l$ 
+- upper limit $p_u$, 
+- Goal: prediction interval at level $\alpha$ 
+
+$$
+S(C_n(x), y)_{\alpha} = (p_u - p_l) + \frac{2}{\alpha}(p_l - y)\mathbb{1}(y < p_l) + \frac{2}{\alpha}(y - p_u)\mathbb{1}(y > p_u)
+$$
+
+- Intuition: We want to have very short prediction intervals 
+- Cover the realization $y$, $p_l \leq y \leq p_u$.
+
+
+Solution
+========================================================
+
+$$
+S \approx \text{ width of prediction interval} + \text{ adjust for coverage}
+$$
+
+$$
+PRMSPE = RMSPE + \frac{\bar{S}}{\|Y\|}
+$$
+
+Conjecture:
+$S$ allows for meaningful comparisons of models with prediction intervals of 
+different probability coverages.
+
+Performance
+========================================================
+```{r, echo=FALSE} 
+obs_sub <- read.csv("obs_sub.csv")
+ind <- sample(2, nrow(obs_sub), replace = TRUE, prob=c(0.8, 0.2))
+obs_sub$genotype <- factor(obs_sub$genotype)
+obs_sub$plotid <- factor(obs_sub$plotid)
+
+RMSPE <- function(y, prediction){
+  return(norm(as.matrix(y-prediction), type="F")/norm(as.matrix(y), type="F"))
+}
+
+## penalized relative mean squared prediction error.
+
+PRMSPE <- function(y, prediction, lcl, ucl, alpha){
+  r <- RMSPE(y, prediction)
+  s <- ucl - lcl + (2/alpha)*(lcl - y)*(y < lcl) + (2/alpha)*(y-ucl)*(y > ucl)
+  s_rel <- mean(s)/norm(as.matrix(y), type="F")
+  
+  return(r + s_rel)
+}
+
+
+library(mgcv)
+niter<-10
+results <- matrix(NA, nrow=niter, ncol=4)
+for(k in 1:niter){
+  train <- obs_sub[ind==1,]
+  train_sub <- train[sample(1:nrow(train), size=10000,replace = T),]
+  gam1 <- gam(Stem ~ plotid + precip + Leaf + Root + genotype,
+                         data=train_sub)
+
+  gam2 <- gam(Stem ~ Rhizome + LAI + NDVI + precip, 
+                         data=train_sub)
+  
+  test <- obs_sub[ind==2,] 
+  p1 <- predict(gam1, newdata=test, type = "link", se.fit = TRUE)
+  p2 <- predict(gam2, newdata=test, type = "link", se.fit = TRUE)
+  
+  upr1 <- p1$fit + (pnorm(.975) * p1$se.fit)
+  lwr1 <- p1$fit - (pnorm(.975) * p1$se.fit)
+  
+  upr2 <- p2$fit + (pnorm(.975) * p2$se.fit)
+  lwr2 <- p2$fit - (pnorm(.975) * p2$se.fit)
+  
+  upr3 <- p2$fit + (pnorm(.95) * p2$se.fit)
+  lwr3 <- p2$fit - (pnorm(.95) * p2$se.fit)
+  
+  upr4 <- p2$fit + (pnorm(.995) * p2$se.fit)
+  lwr4 <- p2$fit - (pnorm(.995) * p2$se.fit)
+  
+  results[k,] <- c(
+                  PRMSPE(y = test[,'Stem'], prediction = p1$fit, ## alpha = 0.05
+                           lcl = lwr1, ucl = upr1, alpha = 0.05),
+                  PRMSPE(y = test[,'Stem'], prediction = p2$fit, 
+                         lcl = lwr2, ucl = upr2, alpha = 0.05),
+                  PRMSPE(y=test[,'Stem'], prediction = p2$fit, ## alpha = 0.10
+                         lcl=lwr3, ucl=upr3, alpha=0.10),
+                  PRMSPE(y=test[,'Stem'], prediction = p2$fit, ## alpha = 0.10
+                         lcl=lwr4, ucl=upr4, alpha=0.01)
+                  )
+}
+colnames(results) <- c("PRMSPE1", "PRMSPE2", "PRMSPE.10", "PRMSPE.01")
+library(reshape2)
+res_m <- melt(results)
+colnames(res_m) <- c("iteration","measure", "value")
+library(ggplot2)
+res_m <- data.frame(res_m)
+ggplot(res_m, aes(x=iteration, y=value)) + geom_line(aes(color=measure,size=2)) + 
+  annotate("text", x = 2.5, y = 0.65, label = c("Model 2 with 99% Interval"), parse=TRUE) + 
+  annotate("text", x = 2.5, y = 0.475, label = c("Model 2 with 90% Inteval"), parse=TRUE) + 
+  geom_segment(aes(x = 2.5, y = .67, xend = 2.5, yend = .71), arrow = arrow(length =unit(0.5, "cm"))) + 
+  geom_segment(aes(x = 2.5, y = .45, xend = 2.5, yend = .375), arrow = arrow(length = unit(0.5, "cm"))) + 
+              theme_bw()
+```
+
+
+
+
+
+Takeaways
+===========================================
+- Original Idea was handwavily constructed
+- New Idea is theoretically sound
+- Behaves well
+- May allow for comparisons between intervals with 
+varying probability coverages.
+
+
+
+
