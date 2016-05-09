@@ -1,6 +1,6 @@
 ---
 title: "Measures of Prediction Accuracy and Ranking"
-author: "Kyle Payne, Tangwei Li, Manzi Qin"
+author: "Kyle Payne, Tangwei Li, Manze Qin"
 date: "March 1, 2016"
 header-includes:
    - \usepackage{theorem}
@@ -9,19 +9,13 @@ output:
 ---
 
 # Introduction
-The following report consists of the Author's Recommendation for Measures of Prediction Quality for the TerraRef Project at the University of Illinois. In this preliminary report we will focus on two particular problems that have been addressed so far:
-
-* How to determine the accuracy of a continuous prediction on a continous target value (e.g. phenotype).
-
-* How to Score Predicted Rankings for some subset of lines (e.g. genotypes).
-
-While we only address these problems in a relatively closed sense, the measures that we propose may be applicable to other settings as well. We will define the our measures, describe their respective numerical and statistical properties, make recommendations for using these measures in practice, and produce functions in both the Python and R languages for their implementation. 
+Scoring Predictions is a common and increasingly important task in applied research. As science and business take the unprecendented step towards greater and greater complexity in prediction models, some fundamental questions are still left open. We address some of these fundamental tasks in this report with respect to how to properly score point, and interval predictions, as well as how to properly score learning to rank models. We explore these topics in this report, as well as introduce several measures of prediction accuracy, interval scoring, and learning to rank scoring. 
 
 # Measures
 
 ## Continuous Phenotype Prediction
 
-An example of the types of problems that fall under 'How to determine the accuracy of a continuous prediction on a continous target value (e.g. phenotype)' would be to demonstrate that predicted values are within 20 percent of ground truth values. Thus, we we need a measure that accounts for the difference between the predicted and ground truth (the true observed phenotype values), while also accounting for the \textit{relative degree} by which the predictions are different from the ground truth values. One metric that appears in the literature (citation) is the Relative Mean Squared Prediction Error, or the RMSPE, which we define in equation (*)
+An example of the types of problems that fall under consideration in this project is, 'How to determine the accuracy of a continuous prediction on a continous target value (e.g. phenotype)' would be to demonstrate that predicted values are within 20 percent of ground truth values. Thus, we we need a measure that accounts for the difference between the predicted and ground truth (the true observed phenotype values), while also accounting for the \textit{relative degree} by which the predictions are different from the ground truth values. One metric that appears in the literature is the Relative Mean Squared Prediction Error, or the RMSPE, which we define in the following equation.
 
 Let $Y_1, ..., Y_n$ be a set of ground truth phenotype values, and let $\hat{Y_1}, ..., \hat{Y_n}$ be the set of corresponding predictions for the ground truth phenotype values, then the RMSPE is defined as.
 
@@ -69,7 +63,7 @@ $$
 	RMSPE \leq 0.20 \Rightarrow \sqrt{\sum_{i=1}^{n}(Y_i - \hat{Y_i})^2} \leq 0.2\sqrt{\sum_{i=1}^{n}Y_i^2}
 $$
 
-The equation above describes the case where the $RMSPE$ being less than or equal to 20 percent is equivalent to stating that the mean squared prediction error is bounded by $0.2$ the size of the ground truth phenotype values. The quantity on the left-hand side of the inequality is an example of a commonly used measure of distance in mathematics, engineering, statistics, computer science, etc. known as the \textit{Norm} (Weisstein, Eric W. "Norm." From MathWorld--A Wolfram Web Resource. http://mathworld.wolfram.com/Norm.html).
+The equation above describes the case where the $RMSPE$ being less than or equal to 20 percent is equivalent to stating that the mean squared prediction error is bounded by $0.2$ the size of the ground truth phenotype values. The quantity on the left-hand side of the inequality is an example of a commonly used measure of distance in mathematics, engineering, statistics, computer science, etc. known as the \textit{Norm}.
 
 Let $RMSPE_L$ be the relative mean squared prediction error of Lemnatec software predictions on the ground truth continuous phenotype values $Y_1, ..., Y_n$, which we will denote as $Y_1^{*}, ..., Y_n^{*}$. Let $RMSPE_M$ be the relative mean squared prediction error of some prediction model or algorithm. Then, making a determination such as 'algorithm predictions are no less accurate than values predicted via LemnaTec software', would require comparing $RMSPE_L$ and $RMSPE_M$, thus
 
@@ -99,7 +93,7 @@ $$
 P(Y_{n+1} \in C_{n}(X_{n+1})) \geq 1-\alpha
 $$
 
-That is, the probability coverage of the prediction interval is at least $1-\alpha$. Obviously, we want our prediction interval to be as small as possible in lebesgue measure while retaining at least $1-\alpha$ probability converage of any observation in the test set, i.e. $(X_{n+1}, Y_{n+1})$. A general evaluation of model performance could be one in which we consider models which have the smallest overall bias, variance, and (if equipped with interval predictions), the smallest size of a prediction interval over a set of models where the probability coverage of the interval is $1-\alpha$. A measure of efficiency of the interval estimate is the Lebesgue measure, which in any subset of $[a,b] \subset \mathbb{R}$ is just $b-a$. Thus, as $C_{n}(x)$ is just an interval pointwise, we can measure of the efficiency as defined in (citation) as $C_{n}^{u}(x) - C_{n}^{l}(x)$ where $C_{n}(x) = [C_{n}^{l}(x), C_{n}^{u}(x)]$.
+That is, the probability coverage of the prediction interval is at least $1-\alpha$. Obviously, we want our prediction interval to be as small as possible in lebesgue measure while retaining at least $1-\alpha$ probability converage of any observation in the test set, i.e. $(X_{n+1}, Y_{n+1})$. A general evaluation of model performance could be one in which we consider models which have the smallest overall bias, variance, and (if equipped with interval predictions), the smallest size of a prediction interval over a set of models where the probability coverage of the interval is $1-\alpha$. A measure of efficiency of the interval estimate is the Lebesgue measure, which in any subset of $[a,b] \subset \mathbb{R}$ is just $b-a$. Thus, as $C_{n}(x)$ is just an interval pointwise, we can measure of the efficiency as $C_{n}^{u}(x) - C_{n}^{l}(x)$ where $C_{n}(x) = [C_{n}^{l}(x), C_{n}^{u}(x)]$.
 
 To formalize the measure, let 
 
@@ -152,6 +146,9 @@ PRMSPE_{\tau_e} = \frac{\| Y-\hat{Y} \|}{\| Y \|} + \frac{1}{k \|Y \|}\sum_{i=1}
 $$
 
 Practically, this score penalization results in a convenient and well-behaved score for measuring the strength of a prediction model while providing an even measure of the interval strength. 
+
+
+The plot given in the margin shows the PRMSPE error evaluated over several models with the corresponding RMSPE scores given as well. We see that the model with better RMSPE also had better PRMSPE scores, as anticipated. 
 
 ```{r, echo=FALSE, fig.margin=TRUE}
 RMSPE <- function(y, prediction){
@@ -229,8 +226,6 @@ $$
 +(y_{n+1} - p_u^{(0)})\mathbb{1}(y_{n+1} > p_u^{(0)}) - (y_{n+1} - p_u^{(1)})\mathbb{1}(y_{n+1} > p_u^{(1)}) \leq \frac{\alpha \epsilon}{2}
 $$
 
-The Proof of Lemma 1 is given in the appendix.
-
 One consequence of Lemma 1 is that if for any arbitrary observation in the test set $(Y_{n+1}, x_{n+1})$, if $S(C_n^{(0)}(x_{n+1})_{\alpha}) \leq S(C_n^{(1)}(x_{n+1})_{\alpha})$ then either 
 
 $$
@@ -252,6 +247,16 @@ or both intervals cover the target sample $y_{n+1}$. The meaning of these compar
 
 One might question the importance of the probability coverage of prediction intervals if for any finite sample then prediction bands cover $y_{n+1}$. Of course such an interval would be a godsend. However, while we can evaluate the empirical coverage proportion in any test sample
 $\frac{1}{n}\sum_{i=1}^{n}1(Y_{i} \in C_n^(x_{n+1}))$, we would hope to use the preidction interval in a context in which we couldn't check the coverage empirically. Thus, we have to consider the probability coverage of the interval in determining optimal intervals. This is also complicated by the fact that one can create arbitrarily good coverage of $Y_{n+1}$ by taking $\alpha\rightarrow 0$. Thus the interval score $S_{n}$ balances size of the overall interval by the empirical coverage, and should work well for models that generalize well.
+
+## pmap
+
+We also introduce a similar score, the $pmap$, which is defined below
+
+$$
+pmap = \frac{1}{n}\sum_{i=1}^{n}\frac{|Y_i - \hat{Y_i}}{\frac{1}{n-1}\sum_{i=2}^{n}|Y_{i}-Y_{i=1}|} + \bar{S(C)}
+$$
+
+Which has better numerical properties, such as lessening the impact of very small or large values of $Y_i$ relative to their respect deviation from $\hat{Y_i}$. 
 
 
 ## Performance 
@@ -295,7 +300,7 @@ ggplot(results, aes(x=noise_sd, rmspe))+geom_line()+theme_bw()+
 
 We can also elucidate the behavior of the Scoring Penalty by comparing a single prediction model with two sets of prediction intervals. In this section, we will compare the performance of both the $R$ score and an alternative score, the $MASE$ when comparing a series of increasingly precise bootstrap prediction intervals to that of a normal approximation. 
 
-We estimated a Generalized Additive Model (citation) with a $0.95$ prediction interval approximation of the type described in (Wasserman, 2012):
+We estimated a Generalized Additive Model (Hastie Tibshirani, 1990) with a $0.95$ prediction interval approximation of the type described in (Wasserman, 2012):
 
 $$
 C_{n}(x) = (\hat{m}(x) - z_{\alpha/2}\sqrt{\hat{sigma^2} + s}, \hat{m}(x) + z_{\alpha/2}\sqrt{\hat{sigma^2} + s})
@@ -314,60 +319,39 @@ RMSPE <- function(y, prediction){
   return(norm(as.matrix(y-prediction), type="F")/norm(as.matrix(y), type="F"))
 }
 
-
-
-MASE_MAS <- function(y, prediction, lcl, ucl, alpha){
-  MASE <- mean(abs(y-prediction))
-  
-  divide <- 0
-  for(k in 2:length(y)){
-    divide <- divide+abs(y[k] - y[k-1])
-  }
-  divide <- (1/(length(y)-1))*divide
-  
-  MASE<-MASE*divide
-  
+PRMSPE <- function(y, prediction, lcl, ucl, alpha){
+  r <- RMSPE(y, prediction)
   s <- ucl - lcl + (2/alpha)*(lcl - y)*(y < lcl) + (2/alpha)*(y-ucl)*(y > ucl)
-  mean_s <- mean(s)
-  
-  d<-1/(length(s)-1)
-  denom <- 0
-  for(k in 2:length(s)){
-    denom <- denom + abs(s[k] - s[k-1])
-  }
-  denom <- d*denom
-  
-  s_rel <- mean_s/denom
-  
-  return(MASE + s_rel)
+  s_rel <- mean(s)/norm(as.matrix(y),type="F")
+  return(r + s_rel)
 }
 
 
 
 library(mgcv)
 
-train <- obs_sub[ind==1,]
-train_sub <- train[sample(1:nrow(train), size=10000,replace = T),]
-gam1 <- gam(Stem ~ plotid + precip + Leaf + Root + genotype,
-            data=train_sub)
-gam2 <- gam(Stem ~ Rhizome + LAI + NDVI + precip, 
-            data=train_sub)
-
-test <- obs_sub[ind==2,] 
-p1 <- predict(gam1, newdata=test, type = "link", se.fit = TRUE)
-p2 <- predict(gam2, newdata=test, type = "link", se.fit = TRUE)
-
-
+  train <- obs_sub[ind==1,]
+  train_sub <- train[sample(1:nrow(train), size=10000,replace = T),]
+  gam1 <- gam(Stem ~ plotid + precip + Leaf + Root + genotype,
+                         data=train_sub)
+  gam2 <- gam(Stem ~ Rhizome + LAI + NDVI + precip, 
+                         data=train_sub)
+  
+  test <- obs_sub[ind==2,] 
+  p1 <- predict(gam1, newdata=test, type = "link", se.fit = TRUE)
+  p2 <- predict(gam2, newdata=test, type = "link", se.fit = TRUE)
+  
+  
 
 ### same model, two different prediction intervals. 
-n_iter <- 1000
+n_iter <- 100
 results <- matrix(NA, ncol=2, nrow=n_iter)
 
 eps <- 0.01
 for(k in 2:n_iter){
   ### normal approximation interval
-  upr_norm <- p2$fit + (qnorm(.95) * (p2$se.fit))
-  lwr_norm <- p2$fit - (qnorm(.95) * (p2$se.fit))
+  upr_norm <- p2$fit + (qnorm(.95) * (p2$se.fit-eps))
+  lwr_norm <- p2$fit - (qnorm(.95) * (p2$se.fit-eps))
   
   boot_pred_means <- replicate(k, mean(sample(p2$fit, 100, replace=F)))
   boot_pred_means_std <- (boot_pred_means-mean(boot_pred_means))/(sd(boot_pred_means))
@@ -380,11 +364,11 @@ for(k in 2:n_iter){
   lwr_boot <- p2$fit + (piv_down*p2$se.fit) 
   
   
-  p_norm <- MASE_MAS(y = test[,'Stem'], prediction = p2$fit, ## alpha = 0.05
-                   lcl = lwr_norm, ucl = upr_norm, alpha = 0.1)
+  p_norm <- PRMSPE(y = test[,'Stem'], prediction = p2$fit, ## alpha = 0.05
+         lcl = lwr_norm, ucl = upr_norm, alpha = 0.1)
   
-  p_boot<-MASE_MAS(y = test[,'Stem'], prediction = p2$fit, ## alpha = 0.05
-                 lcl = lwr_boot, ucl = upr_boot, alpha = 0.1)
+  p_boot<-PRMSPE(y = test[,'Stem'], prediction = p2$fit, ## alpha = 0.05
+         lcl = lwr_boot, ucl = upr_boot, alpha = 0.1)
   
   results[k,] <- c(p_norm, p_boot)
 }
@@ -405,6 +389,8 @@ library(ggplot2)
 colnames(results_m) <- c("int_type", "R", "boot_samps") 
 ggplot(results_m,aes(x=boot_samps, y=R))+geom_line(aes(colour=int_type))
 ````
+
+
 
 
 # Ranking
@@ -507,4 +493,16 @@ row.names(ranks)<-c("Ground Truth", "Predicted")
 ```
 
 We can still score the predicted ranking relative to the true ranking even if the $5th$ position of the list of predicted ranks has a value that is way outside of the top $10$ values. 
+
+
+
+# Citations
+
+Chen, Wei, et al. "Ranking measures and loss functions in learning to rank." Advances in Neural Information Processing Systems. 2009.
+
+Gneiting, Tilmann, and Adrian E. Raftery. "Strictly proper scoring rules, prediction, and estimation." Journal of the American Statistical Association 102.477 (2007): 359-378.
+
+Gneiting, Tilmann, Fadoua Balabdaoui, and Adrian E. Raftery. "Probabilistic forecasts, calibration and sharpness." Journal of the Royal Statistical Society: Series B (Statistical Methodology) 69.2 (2007): 243-268.
+
+Hastie, Trevor J., and Robert J. Tibshirani. Generalized additive models. Vol. 43. CRC Press, 1990.
 
