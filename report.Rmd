@@ -47,7 +47,12 @@ Then for $f(x,y) = \frac{x}{y}$, a first-order taylor approximation of $E(\frac{
 Another important property of the RMSPE can be found when looking at the quadratic expansion of the numerator of the ratio, that is, the $MSPE$. 
 
 $$
-MSPE = \sum_{i=1}^{n}(Y_{i} - \hat{Y}_{i})^2 = \sum_{i}(Y_{i} - E(Y_i|X_i = x_i) + E(Y_i|X_i=x_i) - \hat{Y}_i)^2 = \sum_{i=1}^{n}(Y_{i} - E(Y_i|X_i = x_i))^2 +
+MSPE = \sum_{i=1}^{n}(Y_{i} - \hat{Y}_{i})^2 = \sum_{i}(Y_{i} - E(Y_i|X_i = x_i) +
+$$
+$$
+E(Y_i|X_i=x_i) - \hat{Y}_i)^2 = \sum_{i=1}^{n}(Y_{i} - E(Y_i|X_i = x_i))^2 +
+$$
+$$
 \sum_{i=1}^{n}(E(Y_i|X_i=x_i) + error = bias^2 + variance + error. 
 $$
 
@@ -223,6 +228,8 @@ then
 
 $$
 (p_l^{(0)} - y_{n+1})\mathbb{1}(y_{n+1} < p_l^{(0)}) - (p_l^{(1)} - y_{n+1})\mathbb{1}(y_{n+1} < p_l^{(1)}) 
+$$
+$$
 +(y_{n+1} - p_u^{(0)})\mathbb{1}(y_{n+1} > p_u^{(0)}) - (y_{n+1} - p_u^{(1)})\mathbb{1}(y_{n+1} > p_u^{(1)}) \leq \frac{\alpha \epsilon}{2}
 $$
 
